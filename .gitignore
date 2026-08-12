@@ -1,0 +1,20 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+
+# Secrets
+.secrets/
+*.pem
+*.key
+
+# Word documents (사내 자료)
+*.docx
+
+# OS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
