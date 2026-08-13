@@ -3,6 +3,10 @@
 # 14-test-resource-limit.sh
 # controller(slurm-ctrl)에서 실행
 # 용도: 자원 초과 요청 거부 테스트 (스케줄링 정책 검증)
+#
+# Slurm의 핵심 역할 중 하나는 "자원 보호"다.
+# 노드가 가진 것보다 더 많은 자원을 요청하면 거부해야 한다.
+# 이것이 안 되면 over-subscribe로 성능 저하/장애가 발생할 수 있다.
 ##############################################################################
 set -euo pipefail
 
@@ -14,23 +18,34 @@ echo "현재 노드 구성: slurm-c[1-2], CPUs=2, RealMemory=1600 각각"
 
 echo ""
 echo "===== [1/4] 정상 요청: CPU 2개 ====="
+# 노드당 CPU가 2개이므로, 2개 요청은 통과해야 정상이다.
 srun --input=none --cpus-per-task=2 bash -c 'echo "host=$(hostname) cpus_ok"'
 echo "정상 기준: 실행 성공"
 
 echo ""
 echo "===== [2/4] 초과 요청: CPU 4개 (노드당 2개인데 4개 요청) ====="
+# 노드당 CPU가 2개뿐인데 4개를 요청한다.
+# 어떤 노드도 이 요청을 만족시킬 수 없으므로 거부되어야 한다.
+# --immediate=10: 10초 기다려도 자원이 안 잡히면 실패 처리
+# 거부 = Slurm이 자원 보호를 정상 수행하고 있다는 뜻이다.
 srun --input=none --cpus-per-task=4 --immediate=10 bash -c 'echo "UNEXPECTED"' \
   && echo "❌ 예상과 다르게 수락됨" \
   || echo "✅ 예상대로 거부됨 (노드당 CPU 2개 초과)"
 
 echo ""
 echo "===== [3/4] 초과 요청: 3-node (2대밖에 없는데 3대 요청) ====="
+# 클러스터에 compute 노드가 2대뿐인데 3대를 요청한다.
+# 물리적으로 불가능하므로 거부되어야 한다.
+# 이것이 통과하면 slurm.conf 노드 정의에 문제가 있는 것이다.
 srun --input=none --nodes=3 --immediate=10 bash -c 'echo "UNEXPECTED"' \
   && echo "❌ 예상과 다르게 수락됨" \
   || echo "✅ 예상대로 거부됨 (노드 3대 없음)"
 
 echo ""
 echo "===== [4/4] 메모리 초과 요청 ====="
+# 노드당 RealMemory=1600(MB)인데 8000MB를 요청한다.
+# Slurm은 메모리도 자원으로 관리하므로, 초과 시 거부해야 한다.
+# 실제 GPU 학습에서 메모리 부족으로 OOM이 나는 것을 사전에 방지하는 기능이다.
 srun --input=none --mem=8000 --immediate=10 bash -c 'echo "UNEXPECTED"' \
   && echo "❌ 예상과 다르게 수락됨" \
   || echo "✅ 예상대로 거부됨 (노드당 메모리 1600MB인데 8000MB 요청)"

@@ -2,8 +2,11 @@
 ##############################################################################
 # 16-test-gpu-batch.sh
 # controller(slurm-ctrl)에서 실행
-# 용도: GPU batch Job 테스트 (2-node GPU Job 포함)
+# 용도: GPU batch Job 테스트 (단일/2-node GPU Job 포함)
 # 선행조건: 15-test-fake-gpu.sh가 성공한 상태
+#
+# 실제 GPU 학습 워크로드는 대부분 sbatch로 제출한다.
+# 이 스크립트는 GPU가 할당된 batch Job이 정상 동작하는지 확인한다.
 ##############################################################################
 set -euo pipefail
 
@@ -13,6 +16,9 @@ echo "============================================================"
 
 echo ""
 echo "===== [1/3] 단일 노드 GPU batch Job ====="
+# --gres=gpu:b200:4: 한 노드에서 GPU 4개를 할당받는 Job
+# 실제 학습에서는 모델 크기에 따라 GPU 수를 조절한다.
+# CUDA_VISIBLE_DEVICES에 4개의 GPU index가 표시되어야 한다.
 cat >/shared/templates/gpu-single.sbatch <<'EOF'
 #!/bin/bash
 #SBATCH --job-name=gpu-single
@@ -35,6 +41,11 @@ echo "제출됨: Job ID = ${JOB1}"
 
 echo ""
 echo "===== [2/3] 2-node GPU batch Job ====="
+# 분산 학습의 핵심 시나리오: 2대의 노드에서 각각 GPU 8개씩 사용.
+# 총 16개 GPU를 사용하는 멀티노드 학습을 시뮬레이션한다.
+# rank=0은 노드1, rank=1은 노드2에서 실행되어야 한다.
+# 각 rank에서 CUDA_VISIBLE_DEVICES가 표시되면
+# Slurm이 노드별로 GPU를 올바르게 배분한 것이다.
 cat >/shared/templates/gpu-two-node.sbatch <<'EOF'
 #!/bin/bash
 #SBATCH --job-name=gpu-two-node
